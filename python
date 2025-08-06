@@ -1,0 +1,96 @@
+import sqlite3
+
+con = sqlite3.connect(":memory:")
+cur = con.cursor()
+
+cur.executescript("""
+CREATE TABLE usuario_table (
+    id_usuario INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT,
+    senha TEXT,
+    tipo_perfil TEXT,
+    data_cadastrado DATETIME
+);
+
+CREATE TABLE perfil_candidato_table (
+    id_usuario INTEGER PRIMARY KEY,
+    nome_completo TEXT,
+    telefone TEXT,
+    localizacao TEXT,
+    resumo_perfil TEXT,
+    FOREIGN KEY (id_usuario) REFERENCES usuario_table(id_usuario)
+);
+
+CREATE TABLE vagas_table (
+    id_vaga INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_usuario INTEGER,
+    titulo TEXT,
+    descricao_vagas TEXT,
+    status_vaga TEXT,
+    FOREIGN KEY (id_usuario) REFERENCES usuario_table(id_usuario)
+);
+
+CREATE TABLE candidaturas_table (
+    id_candidatura INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_usuario INTEGER,
+    id_vaga INTEGER,
+    data_candidatura DATETIME,
+    status_candidatura TEXT,
+    FOREIGN KEY (id_usuario) REFERENCES usuario_table(id_usuario),
+    FOREIGN KEY (id_vaga) REFERENCES vagas_table(id_vaga)
+);
+""")
+
+cur.execute("INSERT INTO usuario_table VALUES (NULL, 'empresa@email.com', 'abcd', 'empresa', datetime('now'))")
+empresa_id = cur.lastrowid
+cur.execute("INSERT INTO vagas_table VALUES (NULL, ?, 'Desenvolvedor Júnior', 'Vaga para Python', 'aberta')", (empresa_id,))
+cur.execute("INSERT INTO vagas_table VALUES (NULL, ?, 'Estágio em Dados', 'Análise de dados e Excel', 'aberta')", (empresa_id,))
+
+print("👋 Bem-vindo ao sistema de candidatura!")
+
+nome = input("Digite seu nome completo: ")
+email = input("Digite seu e-mail: ")
+senha = input("Crie uma senha: ")
+telefone = input("Telefone de contato: ")
+localizacao = input("Cidade/Estado: ")
+resumo = input("Resumo do seu perfil: ")
+area_desejada = input("Que tipo de vaga você procura? (Ex: Python, Dados, etc): ")
+
+cur.execute("INSERT INTO usuario_table VALUES (NULL, ?, ?, 'candidato', datetime('now'))", (email, senha))
+usuario_id = cur.lastrowid
+
+cur.execute("INSERT INTO perfil_candidato_table VALUES (?, ?, ?, ?, ?)", (usuario_id, nome, telefone, localizacao, resumo))
+
+print(f"\n🔍 Vagas encontradas para a área '{area_desejada}':\n")
+query_vagas = """
+SELECT v.id_vaga, v.titulo, v.descricao_vagas
+FROM vagas_table v
+WHERE LOWER(v.descricao_vagas) LIKE LOWER(?)
+"""
+for row in cur.execute(query_vagas, ('%' + area_desejada + '%',)):
+    print(f"ID da vaga: {row[0]} | Título: {row[1]} | Descrição: {row[2]}")
+
+def menu():
+    print("\n📌 MENU")
+    print("1 - Listar seu cadastro")
+    print("2 - Ver todas as vagas")
+    print("3 - Sair")
+
+while True:
+    menu()
+    opcao = input("Escolha uma opção: ")
+   
+    if opcao == "1":
+        cur.execute("SELECT * FROM perfil_candidato_table WHERE id_usuario = ?", (usuario_id,))
+        for row in cur.fetchall():
+            print(f"🧑 Nome: {row[1]} | 📞 Tel: {row[2]} | 📍 Localização: {row[3]} | 📝 Sobre: {row[4]}")
+    elif opcao == "2":
+        for row in cur.execute("SELECT titulo, descricao_vagas FROM vagas_table"):
+            print(f"🔹 {row[0]} | {row[1]}")
+    elif opcao == "3":
+        print("Saindo do sistema. Boa sorte nas candidaturas! 👋")
+        break
+    else:
+        print("Opção inválida!")
+
+con.close()
